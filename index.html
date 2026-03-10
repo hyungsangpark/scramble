@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Word Scramble Presentation</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Georgia', serif;
+    background: #0a0a1a;
+    color: white;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+  }
+
+  #progress-bar {
+    position: fixed;
+    top: 0; left: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #7c3aed, #06b6d4);
+    transition: width 0.4s ease;
+    z-index: 100;
+  }
+
+  #counter {
+    position: fixed;
+    top: 14px; right: 20px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.45);
+    letter-spacing: 1px;
+    z-index: 100;
+  }
+
+  #category-label {
+    position: fixed;
+    top: 14px; left: 20px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.35);
+    z-index: 100;
+  }
+
+  #nav {
+    position: fixed;
+    bottom: 28px;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    z-index: 100;
+  }
+
+  .nav-btn {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: white;
+    padding: 10px 28px;
+    border-radius: 30px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    letter-spacing: 0.5px;
+  }
+  .nav-btn:hover { background: rgba(255,255,255,0.16); }
+  .nav-btn:active { transform: scale(0.96); }
+  .nav-btn:disabled { opacity: 0.3; cursor: default; }
+
+  #flip-hint {
+    font-size: 12px;
+    color: rgba(255,255,255,0.3);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    min-width: 160px;
+    text-align: center;
+  }
+
+  /* ── Scene & Card ── */
+  .scene {
+    width: min(700px, 90vw);
+    height: min(400px, 55vw);
+    perspective: 1200px;
+    cursor: pointer;
+  }
+
+  .card {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    /* Only flip transition here — no other transform overrides */
+    transition: transform 0.75s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Flip state toggled purely by class */
+  .card.flipped {
+    transform: rotateY(180deg);
+  }
+
+  /* Slide-transition wrapper */
+  .scene.slide-out-left .card  { animation: slideOutLeft  0.25s ease forwards; }
+  .scene.slide-out-right .card { animation: slideOutRight 0.25s ease forwards; }
+  .scene.slide-in-right .card  { animation: slideInRight  0.30s ease forwards; }
+  .scene.slide-in-left .card   { animation: slideInLeft   0.30s ease forwards; }
+
+  @keyframes slideOutLeft  { to { opacity:0; transform: translateX(-70px); } }
+  @keyframes slideOutRight { to { opacity:0; transform: translateX( 70px); } }
+  @keyframes slideInRight  { from { opacity:0; transform: translateX( 70px); } to { opacity:1; transform: translateX(0); } }
+  @keyframes slideInLeft   { from { opacity:0; transform: translateX(-70px); } to { opacity:1; transform: translateX(0); } }
+
+  /* When flipped AND sliding, combine rotateY + translate */
+  .scene.slide-out-left  .card.flipped { animation: slideOutLeftFlipped  0.25s ease forwards; }
+  .scene.slide-out-right .card.flipped { animation: slideOutRightFlipped 0.25s ease forwards; }
+
+  @keyframes slideOutLeftFlipped  { to { opacity:0; transform: translateX(-70px) rotateY(180deg); } }
+  @keyframes slideOutRightFlipped { to { opacity:0; transform: translateX( 70px) rotateY(180deg); } }
+
+  .card-face {
+    position: absolute;
+    width: 100%; height: 100%;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    text-align: center;
+  }
+
+  .card-front {
+    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e3a5f 100%);
+    border: 1px solid rgba(124,58,237,0.4);
+    box-shadow: 0 25px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1);
+  }
+
+  .card-back {
+    background: linear-gradient(135deg, #064e3b 0%, #065f46 50%, #0c4a6e 100%);
+    border: 1px solid rgba(16,185,129,0.4);
+    box-shadow: 0 25px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1);
+    transform: rotateY(180deg);
+  }
+
+  .card-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    opacity: 0.5;
+    margin-bottom: 24px;
+  }
+
+  .card-word {
+    font-size: clamp(28px, 6vw, 58px);
+    font-weight: bold;
+    letter-spacing: 4px;
+    line-height: 1.2;
+    text-shadow: 0 2px 20px rgba(255,255,255,0.2);
+    word-break: break-word;
+    max-width: 100%;
+  }
+
+  .card-front .card-word { color: #c4b5fd; }
+  .card-back  .card-word { color: #6ee7b7; }
+
+  .card-icon {
+    font-size: 36px;
+    margin-bottom: 20px;
+    opacity: 0.7;
+  }
+
+  #pair-dots {
+    position: fixed;
+    bottom: 72px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 90vw;
+  }
+  .pair-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    transition: background 0.3s;
+  }
+  .pair-dot.active { background: #7c3aed; }
+  .pair-dot.done   { background: rgba(255,255,255,0.45); }
+
+  #key-hint {
+    position: fixed;
+    bottom: 28px; right: 20px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.2);
+  }
+</style>
+</head>
+<body>
+
+<div id="progress-bar"></div>
+<div id="counter"></div>
+<div id="category-label"></div>
+
+<div class="scene" id="scene">
+  <div class="card" id="card">
+    <div class="card-face card-front">
+      <div class="card-label">Scrambled</div>
+      <div class="card-icon">🔀</div>
+      <div class="card-word" id="front-word"></div>
+    </div>
+    <div class="card-face card-back">
+      <div class="card-label">Answer</div>
+      <div class="card-icon" id="back-icon">✅</div>
+      <div class="card-word" id="back-word"></div>
+    </div>
+  </div>
+</div>
+
+<div id="pair-dots"></div>
+
+<div id="nav">
+  <button class="nav-btn" id="prev-btn" onclick="prevSlide()">← Prev</button>
+  <span id="flip-hint">CLICK CARD TO FLIP</span>
+  <button class="nav-btn" id="next-btn" onclick="nextSlide()">Next →</button>
+</div>
+
+<div id="key-hint">← → Space</div>
+
+<script>
+const slides = [
+  { scrambled:"otesanhnslasi",    answer:"1 Thessalonians", category:"📖 Bible", icon:"📖" },
+  { scrambled:"nseisge",          answer:"Genesis",          category:"📖 Bible", icon:"📖" },
+  { scrambled:"2 nrteiocohsri n", answer:"2 Corinthians",   category:"📖 Bible", icon:"📖" },
+  { scrambled:"udmyeoetron",      answer:"Deuteronomy",      category:"📖 Bible", icon:"📖" },
+  { scrambled:"2 ehlssnatanosi",  answer:"2 Thessalonians",  category:"📖 Bible", icon:"📖" },
+  { scrambled:"shuoja",           answer:"Joshua",           category:"📖 Bible", icon:"📖" },
+  { scrambled:"gnos fo onmlosoo", answer:"Song of Solomon",  category:"📖 Bible", icon:"📖" },
+  { scrambled:"2 skngi",          answer:"2 Kings",          category:"📖 Bible", icon:"📖" },
+  { scrambled:"1 tsoecrorihn",    answer:"1 Corinthians",    category:"📖 Bible", icon:"📖" },
+  { scrambled:"3 nohj",           answer:"3 John",           category:"📖 Bible", icon:"📖" },
+  { scrambled:"heocilrns",        answer:"1 Chronicles",     category:"📖 Bible", icon:"📖" },
+  { scrambled:"2 ohjn",           answer:"2 John",           category:"📖 Bible", icon:"📖" },
+  { scrambled:"vitesculi",        answer:"Leviticus",        category:"📖 Bible", icon:"📖" },
+  { scrambled:"zrae",             answer:"Ezra",             category:"📖 Bible", icon:"📖" },
+  { scrambled:"1 jnoh",           answer:"1 John",           category:"📖 Bible", icon:"📖" },
+  { scrambled:"hmaalci",          answer:"Malachi",          category:"📖 Bible", icon:"📖" },
+  { scrambled:"1 uelsma",         answer:"1 Samuel",         category:"📖 Bible", icon:"📖" },
+  { scrambled:"lejo",             answer:"Joel",             category:"📖 Bible", icon:"📖" },
+  { scrambled:"2 peetr",          answer:"2 Peter",          category:"📖 Bible", icon:"📖" },
+  { scrambled:"marons",           answer:"Romans",           category:"📖 Bible", icon:"📖" },
+  { scrambled:"ituts",            answer:"Titus",            category:"📖 Bible", icon:"📖" },
+  { scrambled:"rkma",             answer:"Mark",             category:"📖 Bible", icon:"📖" },
+  { scrambled:"rmiaheje",         answer:"Jeremiah",         category:"📖 Bible", icon:"📖" },
+  { scrambled:"nmopehil",         answer:"Philemon",         category:"📖 Bible", icon:"📖" },
+  { scrambled:"kkbauhak",         answer:"Habakkuk",         category:"📖 Bible", icon:"📖" },
+  { scrambled:"loasncsosi",       answer:"Colossians",       category:"📖 Bible", icon:"📖" },
+  { scrambled:"xduoes",           answer:"Exodus",           category:"📖 Bible", icon:"📖" },
+  { scrambled:"hesrte",           answer:"Esther",           category:"📖 Bible", icon:"📖" },
+  { scrambled:"2 tyihmot",        answer:"2 Timothy",        category:"📖 Bible", icon:"📖" },
+  { scrambled:"rahezicha",        answer:"Zechariah",        category:"📖 Bible", icon:"📖" },
+  { scrambled:"atnmlaseto ni",    answer:"Lamentations",     category:"📖 Bible", icon:"📖" },
+  { scrambled:"1 gkins",          answer:"1 Kings",          category:"📖 Bible", icon:"📖" },
+  { scrambled:"iashai",           answer:"Isaiah",           category:"📖 Bible", icon:"📖" },
+  { scrambled:"lgtsaanai",        answer:"Galatians",        category:"📖 Bible", icon:"📖" },
+  { scrambled:"job",              answer:"Job",              category:"📖 Bible", icon:"📖" },
+  { scrambled:"scat",             answer:"Acts",             category:"📖 Bible", icon:"📖" },
+  { scrambled:"slpsam",           answer:"Psalms",           category:"📖 Bible", icon:"📖" },
+  { scrambled:"2 crlshinoce",     answer:"2 Chronicles",     category:"📖 Bible", icon:"📖" },
+  { scrambled:"urht",             answer:"Ruth",             category:"📖 Bible", icon:"📖" },
+  { scrambled:"lpiiphsianp",      answer:"Philippians",      category:"📖 Bible", icon:"📖" },
+  { scrambled:"dabiaho",          answer:"Obadiah",          category:"📖 Bible", icon:"📖" },
+  { scrambled:"lscsateceise",     answer:"Ecclesiastes",     category:"📖 Bible", icon:"📖" },
+  { scrambled:"naidel",           answer:"Daniel",           category:"📖 Bible", icon:"📖" },
+  { scrambled:"saohe",            answer:"Hosea",            category:"📖 Bible", icon:"📖" },
+  { scrambled:"1 rete p",         answer:"1 Peter",          category:"📖 Bible", icon:"📖" },
+  { scrambled:"2 maesul",         answer:"2 Samuel",         category:"📖 Bible", icon:"📖" },
+  { scrambled:"ymwtaeth",         answer:"Matthew",          category:"📖 Bible", icon:"📖" },
+  { scrambled:"erhsweb",          answer:"Hebrews",          category:"📖 Bible", icon:"📖" },
+  { scrambled:"heeanihm",         answer:"Nehemiah",         category:"📖 Bible", icon:"📖" },
+  { scrambled:"ahmun",            answer:"Nahum",            category:"📖 Bible", icon:"📖" },
+  { scrambled:"eluk",             answer:"Luke",             category:"📖 Bible", icon:"📖" },
+  { scrambled:"dsejgu",           answer:"Judges",           category:"📖 Bible", icon:"📖" },
+  // Animals
+  { scrambled:"PUXALTO",      answer:"Axolotl",      category:"🐾 Animal", icon:"🦎" },
+  { scrambled:"RENOTH",       answer:"Hornet",       category:"🐾 Animal", icon:"🐝" },
+  { scrambled:"SOSTRUPCO",    answer:"Octopus",      category:"🐾 Animal", icon:"🐙" },
+  { scrambled:"TRELSOB",      answer:"Lobster",      category:"🐾 Animal", icon:"🦞" },
+  { scrambled:"MESTHAM",      answer:"Hamster",      category:"🐾 Animal", icon:"🐹" },
+  { scrambled:"KUNSK",        answer:"Skunk",        category:"🐾 Animal", icon:"🦨" },
+  { scrambled:"PONTTH",       answer:"Python",       category:"🐾 Animal", icon:"🐍" },
+  { scrambled:"LALAM",        answer:"Llama",        category:"🐾 Animal", icon:"🦙" },
+  { scrambled:"NOTELAPE",     answer:"Antelope",     category:"🐾 Animal", icon:"🦌" },
+  { scrambled:"HETAECH",      answer:"Cheetah",      category:"🐾 Animal", icon:"🐆" },
+  { scrambled:"LARIGLO",      answer:"Gorilla",      category:"🐾 Animal", icon:"🦍" },
+  { scrambled:"MIGLINF",      answer:"Flamingo",     category:"🐾 Animal", icon:"🦩" },
+  { scrambled:"REDBAG",       answer:"Badger",       category:"🐾 Animal", icon:"🦡" },
+  { scrambled:"TECOYO",       answer:"Coyote",       category:"🐾 Animal", icon:"🐺" },
+  { scrambled:"PHINDOL",      answer:"Dolphin",      category:"🐾 Animal", icon:"🐬" },
+  { scrambled:"HEWLA",        answer:"Whale",        category:"🐾 Animal", icon:"🐋" },
+  { scrambled:"RETSYO",       answer:"Oyster",       category:"🐾 Animal", icon:"🦪" },
+  { scrambled:"TICKET",       answer:"Cricket",      category:"🐾 Animal", icon:"🦗" },
+  { scrambled:"TREVUL",       answer:"Vulture",      category:"🐾 Animal", icon:"🦅" },
+  { scrambled:"PRESHAPORGAS", answer:"Grasshopper",  category:"🐾 Animal", icon:"🦗" },
+  { scrambled:"GANUIA",       answer:"Iguana",       category:"🐾 Animal", icon:"🦎" },
+  { scrambled:"TERFLYBUT",    answer:"Butterfly",    category:"🐾 Animal", icon:"🦋" },
+  { scrambled:"RAFFIEG",      answer:"Giraffe",      category:"🐾 Animal", icon:"🦒" },
+  { scrambled:"CROALF",       answer:"Falcon",       category:"🐾 Animal", icon:"🦅" },
+  { scrambled:"CORSTIPH",     answer:"Ostrich",      category:"🐾 Animal", icon:"🦤" },
+  { scrambled:"REBELUMB",     answer:"Bumblebee",    category:"🐾 Animal", icon:"🐝" },
+  { scrambled:"NOHEMEALC",    answer:"Chameleon",    category:"🐾 Animal", icon:"🦎" },
+  { scrambled:"TROTSIO",      answer:"Tortoise",     category:"🐾 Animal", icon:"🐢" },
+  { scrambled:"NATEEMA",      answer:"Manatee",      category:"🐾 Animal", icon:"🐋" },
+];
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+const deck = shuffle([...slides]);
+let cur = 0;
+let flipped = false;
+let busy = false;
+
+const scene     = document.getElementById('scene');
+const card      = document.getElementById('card');
+const frontWord = document.getElementById('front-word');
+const backWord  = document.getElementById('back-word');
+const backIcon  = document.getElementById('back-icon');
+const counter   = document.getElementById('counter');
+const catLabel  = document.getElementById('category-label');
+const progress  = document.getElementById('progress-bar');
+const dots      = document.getElementById('pair-dots');
+const prevBtn   = document.getElementById('prev-btn');
+const nextBtn   = document.getElementById('next-btn');
+const hint      = document.getElementById('flip-hint');
+
+function loadSlide() {
+  const s = deck[cur];
+  frontWord.textContent = s.scrambled;
+  backWord.textContent  = s.answer;
+  backIcon.textContent  = s.icon;
+  catLabel.textContent  = s.category;
+  counter.textContent   = `${cur + 1} / ${deck.length}`;
+  progress.style.width  = `${((cur + 1) / deck.length) * 100}%`;
+  prevBtn.disabled = cur === 0;
+  nextBtn.disabled = cur === deck.length - 1;
+  buildDots();
+}
+
+function buildDots() {
+  dots.innerHTML = '';
+  deck.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'pair-dot' + (i === cur ? ' active' : i < cur ? ' done' : '');
+    dots.appendChild(d);
+  });
+}
+
+// Pure CSS-class flip — no inline style.transform
+scene.addEventListener('click', (e) => {
+  // Ignore clicks on nav buttons bubbling up
+  if (e.target.closest('.nav-btn')) return;
+  if (busy) return;
+
+  if (!flipped) {
+    flipped = true;
+    card.classList.add('flipped');
+    hint.textContent = 'CLICK AGAIN FOR NEXT →';
+  } else {
+    nextSlide();
+  }
+});
+
+function animateTransition(outClass, inClass, step) {
+  busy = true;
+  // Phase 1: slide out
+  scene.classList.add(outClass);
+  setTimeout(() => {
+    scene.classList.remove(outClass);
+    // Reset flip before loading new slide
+    card.classList.remove('flipped');
+    // Disable transition during content swap + slide-in setup
+    card.style.transition = 'none';
+    flipped = false;
+    cur += step;
+    loadSlide();
+    hint.textContent = 'CLICK CARD TO FLIP';
+    // Phase 2: slide in
+    scene.classList.add(inClass);
+    // Re-enable flip transition after slide-in
+    setTimeout(() => {
+      scene.classList.remove(inClass);
+      card.style.transition = '';
+      busy = false;
+    }, 320);
+  }, 260);
+}
+
+function nextSlide() {
+  if (busy || cur >= deck.length - 1) return;
+  animateTransition('slide-out-left', 'slide-in-right', 1);
+}
+
+function prevSlide() {
+  if (busy || cur <= 0) return;
+  animateTransition('slide-out-right', 'slide-in-left', -1);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') nextSlide();
+  else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') prevSlide();
+  else if (e.key === ' ') { e.preventDefault(); scene.click(); }
+});
+
+// Init
+loadSlide();
+</script>
+</body>
+</html>
