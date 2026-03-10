@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔐 Host Answer Sheet</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Georgia', serif;
+    background: #0f0f1a;
+    color: white;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 30px 20px 60px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+
+  header h1 {
+    font-size: 22px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.6);
+    margin-bottom: 6px;
+  }
+
+  header p {
+    font-size: 12px;
+    color: rgba(255,255,255,0.25);
+    letter-spacing: 1px;
+  }
+
+  /* Search box */
+  #search-wrap {
+    width: min(600px, 100%);
+    position: relative;
+    margin-bottom: 28px;
+  }
+
+  #search {
+    width: 100%;
+    padding: 18px 56px 18px 24px;
+    font-size: 22px;
+    font-family: 'Georgia', serif;
+    letter-spacing: 3px;
+    background: rgba(255,255,255,0.06);
+    border: 2px solid rgba(255,255,255,0.15);
+    border-radius: 14px;
+    color: white;
+    outline: none;
+    transition: border-color 0.2s;
+    text-transform: uppercase;
+  }
+
+  #search::placeholder { color: rgba(255,255,255,0.2); text-transform: none; font-size: 16px; letter-spacing: 1px; }
+  #search:focus { border-color: rgba(124,58,237,0.7); }
+
+  #clear-btn {
+    position: absolute;
+    right: 18px; top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.3);
+    font-size: 20px;
+    cursor: pointer;
+    display: none;
+  }
+  #clear-btn:hover { color: white; }
+
+  /* Result card */
+  #result-card {
+    width: min(600px, 100%);
+    border-radius: 18px;
+    padding: 32px 36px;
+    text-align: center;
+    display: none;
+    animation: fadeUp 0.25s ease;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  #result-card.match {
+    background: linear-gradient(135deg, #064e3b, #065f46, #0c4a6e);
+    border: 1px solid rgba(16,185,129,0.4);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  }
+
+  #result-card.no-match {
+    background: rgba(255,255,255,0.04);
+    border: 1px dashed rgba(255,255,255,0.12);
+  }
+
+  .result-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    color: rgba(255,255,255,0.4);
+    margin-bottom: 12px;
+  }
+
+  .result-scrambled {
+    font-size: 16px;
+    letter-spacing: 4px;
+    color: #c4b5fd;
+    margin-bottom: 6px;
+    opacity: 0.8;
+  }
+
+  .result-arrow { font-size: 20px; margin: 8px 0; opacity: 0.4; }
+
+  .result-answer {
+    font-size: clamp(32px, 7vw, 56px);
+    font-weight: bold;
+    color: #6ee7b7;
+    letter-spacing: 3px;
+    text-shadow: 0 2px 20px rgba(110,231,183,0.3);
+  }
+
+  .result-icon { font-size: 32px; margin-bottom: 12px; }
+
+  .result-category {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.3);
+    margin-top: 14px;
+  }
+
+  .no-match-text {
+    color: rgba(255,255,255,0.3);
+    font-size: 15px;
+    letter-spacing: 1px;
+  }
+
+  /* Fuzzy matches */
+  #fuzzy-wrap {
+    width: min(600px, 100%);
+    margin-top: 16px;
+    display: none;
+  }
+
+  #fuzzy-wrap h3 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.25);
+    margin-bottom: 10px;
+    text-align: center;
+  }
+
+  .fuzzy-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .fuzzy-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 18px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .fuzzy-item:hover { background: rgba(255,255,255,0.09); }
+
+  .fuzzy-scrambled { font-size: 14px; letter-spacing: 2px; color: #c4b5fd; opacity: 0.7; }
+  .fuzzy-answer    { font-size: 18px; font-weight: bold; letter-spacing: 2px; color: #6ee7b7; }
+  .fuzzy-cat       { font-size: 11px; color: rgba(255,255,255,0.25); text-align: right; }
+
+  /* Full table toggle */
+  #table-toggle {
+    margin-top: 36px;
+    background: none;
+    border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.35);
+    padding: 10px 24px;
+    border-radius: 20px;
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  #table-toggle:hover { border-color: rgba(255,255,255,0.3); color: rgba(255,255,255,0.6); }
+
+  #full-table {
+    display: none;
+    width: min(700px, 100%);
+    margin-top: 20px;
+  }
+
+  .table-section { margin-bottom: 24px; }
+  .table-section h3 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.25);
+    margin-bottom: 10px;
+    padding-left: 4px;
+  }
+
+  .table-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 9px 16px;
+    border-radius: 8px;
+    transition: background 0.12s;
+    cursor: pointer;
+  }
+  .table-row:hover { background: rgba(255,255,255,0.06); }
+  .table-row:nth-child(even) { background: rgba(255,255,255,0.025); }
+  .table-row:nth-child(even):hover { background: rgba(255,255,255,0.06); }
+
+  .tr-scrambled { font-size: 13px; letter-spacing: 2px; color: #c4b5fd; opacity: 0.7; flex: 1; }
+  .tr-arrow     { color: rgba(255,255,255,0.2); padding: 0 12px; }
+  .tr-answer    { font-size: 15px; font-weight: bold; letter-spacing: 1px; color: #6ee7b7; flex: 1; text-align: right; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔐 Host Answer Sheet</h1>
+  <p>Type the scrambled word to instantly reveal the answer</p>
+</header>
+
+<div id="search-wrap">
+  <input id="search" type="text" placeholder="Type scrambled word…" autocomplete="off" spellcheck="false" />
+  <button id="clear-btn" onclick="clearSearch()">✕</button>
+</div>
+
+<div id="result-card"></div>
+<div id="fuzzy-wrap"><h3>Close matches</h3><div class="fuzzy-list" id="fuzzy-list"></div></div>
+
+<button id="table-toggle" onclick="toggleTable()">▼ Show Full Answer Sheet</button>
+<div id="full-table"></div>
+
+<script>
+const data = [
+  // Bible
+  { s:"otesanhnslasi",    a:"1 Thessalonians", cat:"📖 Bible", icon:"📖" },
+  { s:"nseisge",          a:"Genesis",          cat:"📖 Bible", icon:"📖" },
+  { s:"2 nrteiocohsri n", a:"2 Corinthians",   cat:"📖 Bible", icon:"📖" },
+  { s:"udmyeoetron",      a:"Deuteronomy",      cat:"📖 Bible", icon:"📖" },
+  { s:"2 ehlssnatanosi",  a:"2 Thessalonians",  cat:"📖 Bible", icon:"📖" },
+  { s:"shuoja",           a:"Joshua",           cat:"📖 Bible", icon:"📖" },
+  { s:"gnos fo onmlosoo", a:"Song of Solomon",  cat:"📖 Bible", icon:"📖" },
+  { s:"2 skngi",          a:"2 Kings",          cat:"📖 Bible", icon:"📖" },
+  { s:"1 tsoecrorihn",    a:"1 Corinthians",    cat:"📖 Bible", icon:"📖" },
+  { s:"3 nohj",           a:"3 John",           cat:"📖 Bible", icon:"📖" },
+  { s:"heocilrns",        a:"1 Chronicles",     cat:"📖 Bible", icon:"📖" },
+  { s:"2 ohjn",           a:"2 John",           cat:"📖 Bible", icon:"📖" },
+  { s:"vitesculi",        a:"Leviticus",        cat:"📖 Bible", icon:"📖" },
+  { s:"zrae",             a:"Ezra",             cat:"📖 Bible", icon:"📖" },
+  { s:"1 jnoh",           a:"1 John",           cat:"📖 Bible", icon:"📖" },
+  { s:"hmaalci",          a:"Malachi",          cat:"📖 Bible", icon:"📖" },
+  { s:"1 uelsma",         a:"1 Samuel",         cat:"📖 Bible", icon:"📖" },
+  { s:"lejo",             a:"Joel",             cat:"📖 Bible", icon:"📖" },
+  { s:"2 peetr",          a:"2 Peter",          cat:"📖 Bible", icon:"📖" },
+  { s:"marons",           a:"Romans",           cat:"📖 Bible", icon:"📖" },
+  { s:"ituts",            a:"Titus",            cat:"📖 Bible", icon:"📖" },
+  { s:"rkma",             a:"Mark",             cat:"📖 Bible", icon:"📖" },
+  { s:"rmiaheje",         a:"Jeremiah",         cat:"📖 Bible", icon:"📖" },
+  { s:"nmopehil",         a:"Philemon",         cat:"📖 Bible", icon:"📖" },
+  { s:"kkbauhak",         a:"Habakkuk",         cat:"📖 Bible", icon:"📖" },
+  { s:"loasncsosi",       a:"Colossians",       cat:"📖 Bible", icon:"📖" },
+  { s:"xduoes",           a:"Exodus",           cat:"📖 Bible", icon:"📖" },
+  { s:"hesrte",           a:"Esther",           cat:"📖 Bible", icon:"📖" },
+  { s:"2 tyihmot",        a:"2 Timothy",        cat:"📖 Bible", icon:"📖" },
+  { s:"rahezicha",        a:"Zechariah",        cat:"📖 Bible", icon:"📖" },
+  { s:"atnmlaseto ni",    a:"Lamentations",     cat:"📖 Bible", icon:"📖" },
+  { s:"1 gkins",          a:"1 Kings",          cat:"📖 Bible", icon:"📖" },
+  { s:"iashai",           a:"Isaiah",           cat:"📖 Bible", icon:"📖" },
+  { s:"lgtsaanai",        a:"Galatians",        cat:"📖 Bible", icon:"📖" },
+  { s:"job",              a:"Job",              cat:"📖 Bible", icon:"📖" },
+  { s:"scat",             a:"Acts",             cat:"📖 Bible", icon:"📖" },
+  { s:"slpsam",           a:"Psalms",           cat:"📖 Bible", icon:"📖" },
+  { s:"2 crlshinoce",     a:"2 Chronicles",     cat:"📖 Bible", icon:"📖" },
+  { s:"urht",             a:"Ruth",             cat:"📖 Bible", icon:"📖" },
+  { s:"lpiiphsianp",      a:"Philippians",      cat:"📖 Bible", icon:"📖" },
+  { s:"dabiaho",          a:"Obadiah",          cat:"📖 Bible", icon:"📖" },
+  { s:"lscsateceise",     a:"Ecclesiastes",     cat:"📖 Bible", icon:"📖" },
+  { s:"naidel",           a:"Daniel",           cat:"📖 Bible", icon:"📖" },
+  { s:"saohe",            a:"Hosea",            cat:"📖 Bible", icon:"📖" },
+  { s:"1 rete p",         a:"1 Peter",          cat:"📖 Bible", icon:"📖" },
+  { s:"2 maesul",         a:"2 Samuel",         cat:"📖 Bible", icon:"📖" },
+  { s:"ymwtaeth",         a:"Matthew",          cat:"📖 Bible", icon:"📖" },
+  { s:"erhsweb",          a:"Hebrews",          cat:"📖 Bible", icon:"📖" },
+  { s:"heeanihm",         a:"Nehemiah",         cat:"📖 Bible", icon:"📖" },
+  { s:"ahmun",            a:"Nahum",            cat:"📖 Bible", icon:"📖" },
+  { s:"eluk",             a:"Luke",             cat:"📖 Bible", icon:"📖" },
+  { s:"dsejgu",           a:"Judges",           cat:"📖 Bible", icon:"📖" },
+  // Animals
+  { s:"PUXALTO",      a:"Axolotl",      cat:"🐾 Animal", icon:"🦎" },
+  { s:"RENOTH",       a:"Hornet",       cat:"🐾 Animal", icon:"🐝" },
+  { s:"SOSTRUPCO",    a:"Octopus",      cat:"🐾 Animal", icon:"🐙" },
+  { s:"TRELSOB",      a:"Lobster",      cat:"🐾 Animal", icon:"🦞" },
+  { s:"MESTHAM",      a:"Hamster",      cat:"🐾 Animal", icon:"🐹" },
+  { s:"KUNSK",        a:"Skunk",        cat:"🐾 Animal", icon:"🦨" },
+  { s:"PONTTH",       a:"Python",       cat:"🐾 Animal", icon:"🐍" },
+  { s:"LALAM",        a:"Llama",        cat:"🐾 Animal", icon:"🦙" },
+  { s:"NOTELAPE",     a:"Antelope",     cat:"🐾 Animal", icon:"🦌" },
+  { s:"HETAECH",      a:"Cheetah",      cat:"🐾 Animal", icon:"🐆" },
+  { s:"LARIGLO",      a:"Gorilla",      cat:"🐾 Animal", icon:"🦍" },
+  { s:"MIGLINF",      a:"Flamingo",     cat:"🐾 Animal", icon:"🦩" },
+  { s:"REDBAG",       a:"Badger",       cat:"🐾 Animal", icon:"🦡" },
+  { s:"TECOYO",       a:"Coyote",       cat:"🐾 Animal", icon:"🐺" },
+  { s:"PHINDOL",      a:"Dolphin",      cat:"🐾 Animal", icon:"🐬" },
+  { s:"HEWLA",        a:"Whale",        cat:"🐾 Animal", icon:"🐋" },
+  { s:"RETSYO",       a:"Oyster",       cat:"🐾 Animal", icon:"🦪" },
+  { s:"TICKET",       a:"Cricket",      cat:"🐾 Animal", icon:"🦗" },
+  { s:"TREVUL",       a:"Vulture",      cat:"🐾 Animal", icon:"🦅" },
+  { s:"PRESHAPORGAS", a:"Grasshopper",  cat:"🐾 Animal", icon:"🦗" },
+  { s:"GANUIA",       a:"Iguana",       cat:"🐾 Animal", icon:"🦎" },
+  { s:"TERFLYBUT",    a:"Butterfly",    cat:"🐾 Animal", icon:"🦋" },
+  { s:"RAFFIEG",      a:"Giraffe",      cat:"🐾 Animal", icon:"🦒" },
+  { s:"CROALF",       a:"Falcon",       cat:"🐾 Animal", icon:"🦅" },
+  { s:"CORSTIPH",     a:"Ostrich",      cat:"🐾 Animal", icon:"🦤" },
+  { s:"REBELUMB",     a:"Bumblebee",    cat:"🐾 Animal", icon:"🐝" },
+  { s:"NOHEMEALC",    a:"Chameleon",    cat:"🐾 Animal", icon:"🦎" },
+  { s:"TROTSIO",      a:"Tortoise",     cat:"🐾 Animal", icon:"🐢" },
+  { s:"NATEEMA",      a:"Manatee",      cat:"🐾 Animal", icon:"🐋" },
+];
+
+const searchEl  = document.getElementById('search');
+const clearBtn  = document.getElementById('clear-btn');
+const resultCard= document.getElementById('result-card');
+const fuzzyWrap = document.getElementById('fuzzy-wrap');
+const fuzzyList = document.getElementById('fuzzy-list');
+
+function norm(str) { return str.toLowerCase().replace(/\s+/g,''); }
+
+// Simple fuzzy: how many chars of query appear in target in order
+function fuzzyScore(query, target) {
+  const q = norm(query), t = norm(target);
+  let qi = 0;
+  for (let ti = 0; ti < t.length && qi < q.length; ti++) {
+    if (t[ti] === q[qi]) qi++;
+  }
+  return qi / q.length; // 1.0 = full match
+}
+
+function showResult(item) {
+  resultCard.className = 'result-card match';
+  resultCard.style.display = 'block';
+  resultCard.innerHTML = `
+    <div class="result-icon">${item.icon}</div>
+    <div class="result-label">Scrambled</div>
+    <div class="result-scrambled">${item.s}</div>
+    <div class="result-arrow">↓</div>
+    <div class="result-label">Answer</div>
+    <div class="result-answer">${item.a}</div>
+    <div class="result-category">${item.cat}</div>
+  `;
+  // Force re-animation
+  resultCard.style.animation = 'none';
+  requestAnimationFrame(() => { resultCard.style.animation = ''; });
+}
+
+function handleInput() {
+  const raw = searchEl.value.trim();
+  clearBtn.style.display = raw ? 'block' : 'none';
+
+  if (!raw) {
+    resultCard.style.display = 'none';
+    fuzzyWrap.style.display  = 'none';
+    return;
+  }
+
+  // Exact match (case-insensitive, space-insensitive)
+  const exact = data.find(d => norm(d.s) === norm(raw));
+  if (exact) {
+    showResult(exact);
+    fuzzyWrap.style.display = 'none';
+    return;
+  }
+
+  // No exact match — show no-match card + fuzzy suggestions
+  resultCard.className = 'result-card no-match';
+  resultCard.style.display = 'block';
+  resultCard.innerHTML = `<div class="no-match-text">No exact match yet — keep typing…</div>`;
+
+  const scored = data
+    .map(d => ({ ...d, score: fuzzyScore(raw, d.s) }))
+    .filter(d => d.score > 0.45)
+    .sort((a,b) => b.score - a.score)
+    .slice(0, 5);
+
+  if (scored.length) {
+    fuzzyWrap.style.display = 'block';
+    fuzzyList.innerHTML = scored.map(d => `
+      <div class="fuzzy-item" onclick="pickFuzzy('${d.s.replace(/'/g,"\\'")}')">
+        <div>
+          <div class="fuzzy-scrambled">${d.s}</div>
+          <div class="fuzzy-cat">${d.cat}</div>
+        </div>
+        <div class="fuzzy-answer">${d.a} ${d.icon}</div>
+      </div>
+    `).join('');
+  } else {
+    fuzzyWrap.style.display = 'none';
+  }
+}
+
+function pickFuzzy(scrambled) {
+  searchEl.value = scrambled;
+  handleInput();
+}
+
+function clearSearch() {
+  searchEl.value = '';
+  handleInput();
+  searchEl.focus();
+}
+
+// Full table
+let tableOpen = false;
+function toggleTable() {
+  tableOpen = !tableOpen;
+  const btn = document.getElementById('table-toggle');
+  const tbl = document.getElementById('full-table');
+  btn.textContent = tableOpen ? '▲ Hide Answer Sheet' : '▼ Show Full Answer Sheet';
+
+  if (tableOpen && !tbl.innerHTML) {
+    // Build it once
+    const bible   = data.filter(d => d.cat.includes('Bible'));
+    const animals = data.filter(d => d.cat.includes('Animal'));
+
+    function makeSection(items, title) {
+      return `<div class="table-section">
+        <h3>${title}</h3>
+        ${items.map(d => `
+          <div class="table-row" onclick="searchEl.value='${d.s.replace(/'/g,"\\'")}'; handleInput(); window.scrollTo({top:0,behavior:'smooth'})">
+            <span class="tr-scrambled">${d.s}</span>
+            <span class="tr-arrow">→</span>
+            <span class="tr-answer">${d.a} ${d.icon}</span>
+          </div>
+        `).join('')}
+      </div>`;
+    }
+
+    tbl.innerHTML = makeSection(bible, '📖 Bible Books') + makeSection(animals, '🐾 Animals');
+  }
+
+  tbl.style.display = tableOpen ? 'block' : 'none';
+}
+
+searchEl.addEventListener('input', handleInput);
+searchEl.focus();
+</script>
+</body>
+</html>
